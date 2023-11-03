@@ -1,0 +1,31 @@
+ARG VERSION=bullseye
+FROM debian
+
+# install prerequesites
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install make curl nginx vim git openssh-server openssh-client -y
+
+SHELL ["/bin/bash", "--login", "-c"]
+
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+RUN nvm install 16
+
+RUN npm install --location=global yarn
+
+RUN git clone https://github.com/fusionSuite/frontend.git /tmp/fusionsuite-frontend
+WORKDIR /tmp/fusionsuite-frontend
+
+RUN make install
+RUN make build
+
+RUN mkdir -p /var/www/fusionsuite
+RUN mv /tmp/fusionsuite-frontend/dist/frontend/en-US /var/www/fusionsuite/frontend
+RUN chown -R www-data:www-data /var/www/fusionsuite
+
+RUN rm /etc/nginx/sites-enabled/default
+COPY ./resources/frontend/fusionsuite.conf /etc/nginx/sites-available/fusionsuite.conf
+RUN ln -s /etc/nginx/sites-available/fusionsuite.conf /etc/nginx/sites-enabled/fusionsuite.conf
+WORKDIR /etc/init.d
+#RUN service nginx restart
+
+ENTRYPOINT ["nginx", "-g", "daemon off;"]

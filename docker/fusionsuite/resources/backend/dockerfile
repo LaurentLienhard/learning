@@ -1,0 +1,23 @@
+ARG VERSION=bullseye
+FROM debian
+
+RUN apt-get update && apt-get upgrade -y
+RUN apt install curl composer php8.2-fpm php8.2-mysql php8.2-xml nginx mariadb-server git openssh-server openssh-client  -y
+RUN mkdir -p /var/www/fusionsuite \
+    && git clone https://github.com/fusionSuite/backend.git  /var/www/fusionsuite/backend \
+    && rm /etc/nginx/sites-enabled/default
+
+RUN service mariadb start
+# Allow SSH Root Login
+RUN sed -i 's|^#PermitRootLogin.*|PermitRootLogin yes|g' /etc/ssh/sshd_config
+RUN echo "root:root123" | chpasswd
+
+COPY ./resources/backend/fusionsuite.conf /etc/nginx/sites-enabled/fusionsuite.conf
+COPY ./resources/backend/phinx.php /var/www/fusionsuite/backend
+
+WORKDIR /var/www/fusionsuite/backend
+COPY ./resources/backend/configure-mariadb.sql .
+COPY ./resources/backend/run.sh .
+RUN chmod +x ./run.sh
+RUN composer install
+CMD [ "/bin/bash", "./run.sh" ]
